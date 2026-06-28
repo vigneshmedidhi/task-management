@@ -1,0 +1,418 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TaskFlow - Task Management</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        /* Custom scrollbar for Kanban columns */
+        .custom-scrollbar::-webkit-scrollbar {
+            width: 6px;
+        }
+
+        .custom-scrollbar::-webkit-scrollbar-track {
+            background: transparent;
+        }
+
+        .custom-scrollbar::-webkit-scrollbar-thumb {
+            background: #cbd5e1;
+            border-radius: 4px;
+        }
+    </style>
+</head>
+
+<body class="bg-slate-50 text-slate-800 font-sans antialiased min-h-screen">
+
+    <div id="auth-page" class="flex items-center justify-center min-h-screen px-4">
+        <div class="bg-white p-8 rounded-2xl shadow-xl w-full max-w-md border border-slate-100">
+            <div class="text-center mb-8">
+                <div
+                    class="inline-flex items-center justify-center w-12 h-12 bg-indigo-600 text-white rounded-xl mb-3 shadow-md shadow-indigo-200">
+                    <i class="fa-solid fa-list-check text-xl"></i>
+                </div>
+                <h2 class="text-2xl font-bold text-slate-900">Welcome to TaskFlow</h2>
+                <p class="text-sm text-slate-500 mt-1">Sign in to manage your daily workspace</p>
+            </div>
+
+            <form id="login-form" class="space-y-5">
+                <div>
+                    <label class="block text-xs font-semibold uppercase tracking-wider text-slate-600 mb-2">Email
+                        Address</label>
+                    <input type="email" id="auth-email" required value="developer@example.com"
+                        class="w-full px-4 py-3 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition">
+                </div>
+                <div>
+                    <label
+                        class="block text-xs font-semibold uppercase tracking-wider text-slate-600 mb-2">Password</label>
+                    <input type="password" id="auth-password" required value="password123"
+                        class="w-full px-4 py-3 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition">
+                </div>
+                <button type="submit"
+                    class="w-full py-3 bg-indigo-600 hover:bg-indigo-700 text-white font-medium rounded-xl transition shadow-lg shadow-indigo-600/20 hover:shadow-indigo-600/30">
+                    Sign In
+                </button>
+            </form>
+            <p class="text-xs text-center text-slate-400 mt-6">Demo Mode: Any credentials will authenticate
+                successfully.</p>
+        </div>
+    </div>
+
+    <div id="app-page" class="hidden min-h-screen flex flex-col">
+        <header
+            class="bg-white border-b border-slate-200 sticky top-0 z-40 px-4 lg:px-8 py-4 flex items-center justify-between">
+            <div class="flex items-center gap-3">
+                <div
+                    class="w-10 h-10 bg-indigo-600 text-white rounded-xl flex items-center justify-center shadow-md shadow-indigo-200">
+                    <i class="fa-solid fa-list-check"></i>
+                </div>
+                <div>
+                    <h1 class="text-lg font-bold text-slate-900 leading-none">TaskFlow</h1>
+                    <span id="user-display" class="text-xs text-slate-500"></span>
+                </div>
+            </div>
+            <div class="flex items-center gap-3">
+                <button id="btn-new-task"
+                    class="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-medium rounded-lg transition flex items-center gap-2 shadow-sm">
+                    <i class="fa-solid fa-plus text-xs"></i> New Task
+                </button>
+                <button id="btn-logout"
+                    class="p-2 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition"
+                    title="Logout">
+                    <i class="fa-solid fa-right-from-bracket text-lg"></i>
+                </button>
+            </div>
+        </header>
+
+        <div id="socket-alert"
+            class="bg-emerald-50 text-emerald-700 text-xs px-6 py-2 border-b border-emerald-100 flex items-center justify-center gap-2 opacity-0 transition-opacity duration-500">
+            <span class="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
+            <span id="socket-message">Real-time database sync active</span>
+        </div>
+
+        <main class="flex-1 p-4 lg:p-8 max-w-7xl w-full mx-auto">
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-6 items-start h-full">
+
+                <div class="bg-slate-100/70 rounded-2xl p-4 border border-slate-200 flex flex-col max-h-[80vh]">
+                    <div class="flex items-center justify-between mb-4 px-1">
+                        <div class="flex items-center gap-2">
+                            <span class="w-2.5 h-2.5 rounded-full bg-amber-500"></span>
+                            <h3 class="font-bold text-slate-700">To Do</h3>
+                        </div>
+                        <span id="count-todo"
+                            class="bg-white border border-slate-200 text-slate-600 text-xs font-bold px-2.5 py-0.5 rounded-full">0</span>
+                    </div>
+                    <div id="col-todo" class="space-y-3 overflow-y-auto custom-scrollbar flex-1 min-h-[150px]"></div>
+                </div>
+
+                <div class="bg-slate-100/70 rounded-2xl p-4 border border-slate-200 flex flex-col max-h-[80vh]">
+                    <div class="flex items-center justify-between mb-4 px-1">
+                        <div class="flex items-center gap-2">
+                            <span class="w-2.5 h-2.5 rounded-full bg-indigo-500"></span>
+                            <h3 class="font-bold text-slate-700">In Progress</h3>
+                        </div>
+                        <span id="count-progress"
+                            class="bg-white border border-slate-200 text-slate-600 text-xs font-bold px-2.5 py-0.5 rounded-full">0</span>
+                    </div>
+                    <div id="col-progress" class="space-y-3 overflow-y-auto custom-scrollbar flex-1 min-h-[150px]">
+                    </div>
+                </div>
+
+                <div class="bg-slate-100/70 rounded-2xl p-4 border border-slate-200 flex flex-col max-h-[80vh]">
+                    <div class="flex items-center justify-between mb-4 px-1">
+                        <div class="flex items-center gap-2">
+                            <span class="w-2.5 h-2.5 rounded-full bg-emerald-500"></span>
+                            <h3 class="font-bold text-slate-700">Done</h3>
+                        </div>
+                        <span id="count-done"
+                            class="bg-white border border-slate-200 text-slate-600 text-xs font-bold px-2.5 py-0.5 rounded-full">0</span>
+                    </div>
+                    <div id="col-done" class="space-y-3 overflow-y-auto custom-scrollbar flex-1 min-h-[150px]"></div>
+                </div>
+
+            </div>
+        </main>
+    </div>
+
+    <div id="task-modal"
+        class="hidden fixed inset-0 z-50 bg-slate-900/40 backdrop-blur-sm flex items-center justify-center p-4">
+        <div
+            class="bg-white w-full max-w-md rounded-2xl shadow-xl border border-slate-100 overflow-hidden transform scale-95 transition-transform duration-200">
+            <div class="px-6 py-4 border-b border-slate-100 flex items-center justify-between bg-slate-50">
+                <h3 id="modal-title" class="font-bold text-slate-900">Create Task</h3>
+                <button id="modal-close" class="text-slate-400 hover:text-slate-600 transition text-lg"><i
+                        class="fa-solid fa-xmark"></i></button>
+            </div>
+            <form id="task-form" class="p-6 space-y-4">
+                <input type="hidden" id="task-id">
+                <div>
+                    <label class="block text-xs font-semibold uppercase tracking-wider text-slate-500 mb-1.5">Task
+                        Title</label>
+                    <input type="text" id="task-title-input" required placeholder="What needs to be done?"
+                        class="w-full px-3.5 py-2.5 rounded-lg border border-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition text-sm">
+                </div>
+                <div>
+                    <label
+                        class="block text-xs font-semibold uppercase tracking-wider text-slate-500 mb-1.5">Description</label>
+                    <textarea id="task-desc-input" rows="3" placeholder="Add some context details..."
+                        class="w-full px-3.5 py-2.5 rounded-lg border border-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition text-sm resize-none"></textarea>
+                </div>
+                <div class="grid grid-cols-2 gap-4">
+                    <div>
+                        <label
+                            class="block text-xs font-semibold uppercase tracking-wider text-slate-500 mb-1.5">Status</label>
+                        <select id="task-status-input"
+                            class="w-full px-3.5 py-2.5 rounded-lg border border-slate-200 bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition text-sm">
+                            <option value="todo">To Do</option>
+                            <option value="progress">In Progress</option>
+                            <option value="done">Done</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-xs font-semibold uppercase tracking-wider text-slate-500 mb-1.5">Due
+                            Date</label>
+                        <input type="date" id="task-date-input"
+                            class="w-full px-3.5 py-2.5 rounded-lg border border-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition text-sm">
+                    </div>
+                </div>
+                <div class="flex gap-3 pt-4 border-t border-slate-100 mt-6">
+                    <button type="button" id="modal-cancel"
+                        class="flex-1 py-2.5 border border-slate-200 hover:bg-slate-50 text-slate-600 text-sm font-medium rounded-lg transition">Cancel</button>
+                    <button type="submit"
+                        class="flex-1 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-medium rounded-lg transition shadow-sm">Save
+                        Task</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <script>
+        // --- DATA LAYER (Simulating LocalStorage Mock Database with Mock WebSockets) ---
+        const MockDB = {
+            init() {
+                if (!localStorage.getItem('tasks')) {
+                    const defaultTasks = [
+                        { id: '1', title: 'Setup project workspace', desc: 'Initialize standard repository structure and dependencies.', status: 'done', date: '2026-06-10' },
+                        { id: '2', title: 'Design Database Layout', desc: 'Map out schemas for application authorization and user tasks.', status: 'progress', date: '2026-06-15' },
+                        { id: '3', title: 'Refactor state mutations', desc: 'Polish application view handling logic and optimize styling rules.', status: 'todo', date: '' }
+                    ];
+                    localStorage.setItem('tasks', JSON.stringify(defaultTasks));
+                }
+            },
+            getTasks() { return JSON.parse(localStorage.getItem('tasks')); },
+            saveTasks(tasks) {
+                localStorage.setItem('tasks', JSON.stringify(tasks));
+                this.triggerMockWebSocketBroadcast();
+            },
+            // Simulate socket broadcasting updates to other sessions/devices
+            triggerMockWebSocketBroadcast() {
+                const alertBar = document.getElementById('socket-alert');
+                alertBar.classList.remove('opacity-0');
+                setTimeout(() => alertBar.classList.add('opacity-0'), 2500);
+            }
+        };
+
+        // --- APP STATE MANAGEMENT ---
+        let currentUser = localStorage.getItem('user_session') || null;
+        MockDB.init();
+
+        // --- DOM ELEMENTS ---
+        const authPage = document.getElementById('auth-page');
+        const appPage = document.getElementById('app-page');
+        const loginForm = document.getElementById('login-form');
+        const userDisplay = document.getElementById('user-display');
+        const btnLogout = document.getElementById('btn-logout');
+        const btnNewTask = document.getElementById('btn-new-task');
+
+        const taskModal = document.getElementById('task-modal');
+        const taskForm = document.getElementById('task-form');
+        const modalTitle = document.getElementById('modal-title');
+        const modalClose = document.getElementById('modal-close');
+        const modalCancel = document.getElementById('modal-cancel');
+
+        const colTodo = document.getElementById('col-todo');
+        const colProgress = document.getElementById('col-progress');
+        const colDone = document.getElementById('col-done');
+
+        const countTodo = document.getElementById('count-todo');
+        const countProgress = document.getElementById('count-progress');
+        const countDone = document.getElementById('count-done');
+
+        // --- AUTH ACTION HANDLERS ---
+        loginForm.addEventListener('submit', (e) => {
+            e.preventDefault();
+            const email = document.getElementById('auth-email').value;
+            localStorage.setItem('user_session', email);
+            currentUser = email;
+            checkAuth();
+        });
+
+        btnLogout.addEventListener('click', () => {
+            localStorage.removeItem('user_session');
+            currentUser = null;
+            checkAuth();
+        });
+
+        function checkAuth() {
+            if (currentUser) {
+                authPage.classList.add('hidden');
+                appPage.classList.remove('hidden');
+                userDisplay.textContent = currentUser;
+                renderDashboard();
+            } else {
+                appPage.classList.add('hidden');
+                authPage.classList.remove('hidden');
+            }
+        }
+
+        // --- CRUD UI RENDERING ---
+        function renderDashboard() {
+            const tasks = MockDB.getTasks();
+
+            // Clear current list containers
+            colTodo.innerHTML = '';
+            colProgress.innerHTML = '';
+            colDone.innerHTML = '';
+
+            let counters = { todo: 0, progress: 0, done: 0 };
+
+            tasks.forEach(task => {
+                counters[task.status]++;
+
+                const taskCard = document.createElement('div');
+                taskCard.className = "bg-white p-4 rounded-xl border border-slate-200/80 shadow-sm hover:shadow-md transition duration-200 flex flex-col gap-3 group relative";
+
+                // Formulate HTML context for due dates
+                const dateBadge = task.date
+                    ? `<span class="inline-flex items-center gap-1.5 text-xs text-slate-400 bg-slate-50 px-2 py-0.5 rounded border border-slate-100">
+                        <i class="fa-regular fa-calendar text-[10px]"></i> ${task.date}
+                       </span>`
+                    : '';
+
+                taskCard.innerHTML = `
+                    <div>
+                        <h4 class="font-semibold text-slate-800 text-sm group-hover:text-indigo-600 transition break-words pr-12">${escapeHTML(task.title)}</h4>
+                        <p class="text-xs text-slate-500 mt-1 line-clamp-2 break-words">${escapeHTML(task.desc || 'No description extended.')}</p>
+                    </div>
+                    <div class="flex items-center justify-between pt-1 mt-auto">
+                        ${dateBadge}
+                        <div class="flex items-center gap-1 ml-auto opacity-80 group-hover:opacity-100 transition">
+                            <button onclick="changeStatus('${task.id}', 'cycle')" class="p-1.5 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 rounded" title="Move status step">
+                                <i class="fa-solid fa-angles-right text-xs"></i>
+                            </button>
+                            <button onclick="openModal('${task.id}')" class="p-1.5 text-slate-400 hover:text-amber-600 hover:bg-amber-50 rounded" title="Edit Task">
+                                <i class="fa-solid fa-pen text-xs"></i>
+                            </button>
+                            <button onclick="deleteTask('${task.id}')" class="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded" title="Delete Task">
+                                <i class="fa-solid fa-trash-can text-xs"></i>
+                            </button>
+                        </div>
+                    </div>
+                `;
+
+                if (task.status === 'todo') colTodo.appendChild(taskCard);
+                else if (task.status === 'progress') colProgress.appendChild(taskCard);
+                else if (task.status === 'done') colDone.appendChild(taskCard);
+            });
+
+            // Refresh Dynamic Badges Count metrics
+            countTodo.textContent = counters.todo;
+            countProgress.textContent = counters.progress;
+            countDone.textContent = counters.done;
+        }
+
+        // --- APPS TASK ACTIONS (CRUD) ---
+        taskForm.addEventListener('submit', (e) => {
+            e.preventDefault();
+            const id = document.getElementById('task-id').value;
+            const title = document.getElementById('task-title-input').value;
+            const desc = document.getElementById('task-desc-input').value;
+            const status = document.getElementById('task-status-input').value;
+            const date = document.getElementById('task-date-input').value;
+
+            let tasks = MockDB.getTasks();
+
+            if (id) {
+                // Update operation
+                tasks = tasks.map(t => t.id === id ? { id, title, desc, status, date } : t);
+            } else {
+                // Create operation
+                const newTask = { id: Date.now().toString(), title, desc, status, date };
+                tasks.push(newTask);
+            }
+
+            MockDB.saveTasks(tasks);
+            closeModal();
+            renderDashboard();
+        });
+
+        window.deleteTask = function (id) {
+            if (confirm('Are you sure you want to remove this task?')) {
+                let tasks = MockDB.getTasks();
+                tasks = tasks.filter(t => t.id !== id);
+                MockDB.saveTasks(tasks);
+                renderDashboard();
+            }
+        };
+
+        window.changeStatus = function (id, action) {
+            let tasks = MockDB.getTasks();
+            const statusWorkflow = ['todo', 'progress', 'done'];
+
+            tasks = tasks.map(t => {
+                if (t.id === id) {
+                    let currentIndex = statusWorkflow.indexOf(t.status);
+                    let nextIndex = (currentIndex + 1) % statusWorkflow.length;
+                    t.status = statusWorkflow[nextIndex];
+                }
+                return t;
+            });
+
+            MockDB.saveTasks(tasks);
+            renderDashboard();
+        };
+
+        // --- MODAL TOGGLE HANDLERS ---
+        window.openModal = function (id = null) {
+            taskModal.classList.remove('hidden');
+            document.body.classList.add('overflow-hidden');
+
+            if (id) {
+                modalTitle.textContent = "Edit Task Workspace";
+                const task = MockDB.getTasks().find(t => t.id === id);
+                document.getElementById('task-id').value = task.id;
+                document.getElementById('task-title-input').value = task.title;
+                document.getElementById('task-desc-input').value = task.desc;
+                document.getElementById('task-status-input').value = task.status;
+                document.getElementById('task-date-input').value = task.date;
+            } else {
+                modalTitle.textContent = "Create New Task";
+                taskForm.reset();
+                document.getElementById('task-id').value = '';
+            }
+        };
+
+        function closeModal() {
+            taskModal.classList.add('hidden');
+            document.body.classList.remove('overflow-hidden');
+        }
+
+        btnNewTask.addEventListener('click', () => openModal());
+        modalClose.addEventListener('click', closeModal);
+        modalCancel.addEventListener('click', closeModal);
+
+        // --- SECURE HTML STRING ESCAPING UTILITY ---
+        function escapeHTML(str) {
+            return str.replace(/[&<>'"]/g,
+                tag => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;' }[tag] || tag)
+            );
+        }
+
+        // Initialize state route checker on page load
+        checkAuth();
+    </script>
+</body>
+
+</html>
